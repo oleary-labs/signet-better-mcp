@@ -24,6 +24,7 @@ export const registerSignPaymentTools = (server: McpServer, ctx: ToolContext) =>
         })
         .describe("Full EIP-712 typed data envelope. primaryType MUST be 'TransferWithAuthorization'."),
     },
+    { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     async ({ typed_data }) => {
       // Policy: only TransferWithAuthorization
       if (typed_data.primaryType !== "TransferWithAuthorization") {

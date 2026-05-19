@@ -224,44 +224,30 @@ const wwwAuthenticate = (error?: string) => {
 }
 
 app.post("/mcp", async (c) => {
-  console.log("[mcp] incoming request")
   const authHeader = c.req.header("authorization") ?? ""
   const token = authHeader.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : ""
   if (!token) {
-    console.log("[mcp] no bearer token")
     return c.json({ error: "unauthorized" }, 401, {
       "WWW-Authenticate": wwwAuthenticate(),
     })
   }
 
-  console.log("[mcp] validating OAuth token...")
-  const session = await auth.api.getMcpSession({ headers: c.req.raw.headers }).catch((e) => {
-    console.error("[mcp] getMcpSession error:", e)
-    return null
-  })
+  const session = await auth.api.getMcpSession({ headers: c.req.raw.headers }).catch(() => null)
   if (!session?.userId) {
-    console.log("[mcp] invalid token, no session")
     return c.json({ error: "invalid_token" }, 401, {
       "WWW-Authenticate": wwwAuthenticate("invalid_token"),
     })
   }
-  console.log("[mcp] authenticated user:", session.userId)
 
-  // Mint a real RS256 JWT for the authenticated user — the MCP OAuth access
-  // token is opaque, but generateServerProof needs a proper JWT to produce
-  // a ZK proof against the Signet group.
-  console.log("[mcp] minting JWT...")
   let userJwt: string
   try {
     userJwt = await mintJwtForUser(session.userId)
   } catch (e) {
-    console.error("[mcp] mintJwt error:", e)
+    console.error("[mcp] failed to mint JWT:", e)
     return c.json({ error: "failed to mint JWT" }, 500)
   }
-  console.log("[mcp] JWT minted, bootstrapping session + parent key...")
-  // Eagerly bootstrap Signet session + parent key on first request
+
   await sessionManager.getOrCreate({ userId: session.userId, jwt: userJwt })
-  console.log("[mcp] session ready, forwarding to MCP server")
 
   const body = await c.req.json().catch(() => undefined)
   // Reconstruct the request with the already-consumed body so toReqRes

@@ -13,6 +13,7 @@ export const registerEnableKeyTools = (server: McpServer, ctx: ToolContext) => {
         .string()
         .describe("The sub-key to enable: ethereum_address (0x...) or key_id."),
     },
+    { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     async ({ key }) => {
       const resolved = resolveKey(ctx, key)
       if (!resolved) {

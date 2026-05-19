@@ -58,11 +58,11 @@ export class SignetSessionManager {
   }
 
   private async build(userId: string, jwt: string): Promise<SignetSession> {
-    console.log("[session] generating keypair...")
+    const debug = env.LOG_LEVEL === "debug"
+    if (debug) console.log("[session] building new session...")
     const keypair = await generateSessionKeypair()
-    console.log("[session] requesting ZK proof from", env.SIGNET_PROVER_URL)
     const proof = await generateServerProof(env.SIGNET_PROVER_URL, jwt, keypair.publicKeyHex, env.SIGNET_BUNDLER_API_KEY)
-    console.log("[session] proof received, authenticating with bootstrap...")
+    if (debug) console.log("[session] proof received, authenticating...")
     const claims: IdTokenClaims = {
       iss: proof.iss,
       sub: proof.sub,
@@ -82,7 +82,6 @@ export class SignetSessionManager {
     )
 
     // Bootstrap parent key (idempotent — 409 returns existing key)
-    console.log("[session] bootstrapping parent key...")
     const parentResult = await keygen(
       { groupId: env.SIGNET_GROUP_ID, nodeUrls: env.SIGNET_NODE_URLS },
       keypair,
@@ -92,7 +91,7 @@ export class SignetSessionManager {
       "ecdsa_secp256k1",
       undefined, // no scope
     )
-    console.log("[session] parent key:", parentResult.ethereumAddress, parentResult.alreadyExisted ? "(existing)" : "(new)")
+    console.log("[session] parent key:", parentResult.ethereumAddress, parentResult.alreadyExisted ? "(cached)" : "(new DKG)")
 
     const parentKey: ParentKeyInfo = {
       keyId: parentResult.keyId,

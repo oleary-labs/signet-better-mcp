@@ -24,6 +24,7 @@ export const registerMintDelegationTools = (server: McpServer, ctx: ToolContext)
         .optional()
         .describe("Optional description of what the delegation is for (audit log only)."),
     },
+    { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
     async ({ sub_key, expires_in_hours, purpose }) => {
       const resolved = resolveKey(ctx, sub_key)
       if (!resolved) {

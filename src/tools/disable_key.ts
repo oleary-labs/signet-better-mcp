@@ -17,6 +17,7 @@ export const registerDisableKeyTools = (server: McpServer, ctx: ToolContext) => 
         .optional()
         .describe("Optional reason for audit logging."),
     },
+    { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     async ({ key, reason }) => {
       const resolved = resolveKey(ctx, key)
       if (!resolved) {
