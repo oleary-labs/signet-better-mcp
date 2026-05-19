@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "@oleary-labs/signet-sdk": "file:../signet-sdk",
+    "@oleary-labs/signet-sdk": "^0.2.0",
     "better-auth": "^1.5.0",
     "fetch-to-node": "^2.1.0",
     "hono": "^4.6.13",
