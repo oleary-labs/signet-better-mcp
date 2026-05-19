@@ -9,6 +9,7 @@ export const registerListKeysTools = (server: McpServer, ctx: ToolContext) => {
     "list_keys",
     "List the user's Signet keys: one parent key (their Ethereum identity, read-only) and zero-or-more scoped payment sub-keys. Each sub-key shows its scope (chain + contract), on-chain balance, and active/disabled status. Use this to check what keys exist and whether they're funded before calling sign_payment or pay_x402_request.",
     {},
+    { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     async () => {
       const keys = getKeysByUser(ctx.db, ctx.userId)
       const parent = keys.find((k) => k.kind === "parent")

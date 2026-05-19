@@ -23,6 +23,7 @@ export const registerCreatePaymentKeyTools = (server: McpServer, ctx: ToolContex
         .optional()
         .describe("Optional display label (e.g., 'USDC on Base'). Auto-detected from known presets if omitted."),
     },
+    { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     async ({ chain_id, verifying_contract, label }) => {
       const session = await ctx.sessionManager.getOrCreate({ userId: ctx.userId, jwt: ctx.jwt })
 

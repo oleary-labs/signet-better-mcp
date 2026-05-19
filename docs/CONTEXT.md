@@ -6,13 +6,17 @@ re-derive the design from chat scrollback.
 
 ## What this service is
 
-An HTTP service that exposes Signet's threshold-signing operations (list
-keys, run distributed key generation, sign messages, sign transactions) to
-AI agents (Claude, ChatGPT, Cursor, etc.) over the Model Context Protocol.
+An HTTP service that exposes scoped threshold-signing operations to AI
+agents (Claude, ChatGPT, Cursor, etc.) over the Model Context Protocol.
+Primary use case: **x402 micropayments** — signing EIP-3009
+`TransferWithAuthorization` messages so agents can pay for HTTP APIs.
 
-Each end user connects an MCP client to this service via OAuth. From then on
-the AI can call signing tools on the user's behalf within the scopes the
-user approved.
+Each end user connects an MCP client to this service via OAuth. The server
+creates a parent key (the user's Ethereum identity) and scoped sub-keys
+for specific (chainId, contract) pairs. Sub-keys can ONLY sign
+`TransferWithAuthorization` — no arbitrary hashes, no Permits, no raw txs.
+
+See [`DESIGN-V1.md`](./DESIGN-V1.md) for the full v1 design spec.
 
 This service is the Better Auth server AND the MCP server in one process:
 
@@ -154,51 +158,28 @@ The cache is process-local. For multi-replica deploys you have two options:
 
 For v0, option 1 is fine.
 
-## Sign safety — read this before exposing `sign_message` / `sign_transaction`
+## Sign safety
 
-These tools can move funds. Treat them like a treasury console. Required
-before turning them on for real users:
+The v1 tool surface is scope-first by design. All unsafe tools from the
+original skeleton (`sign_message`, `sign_transaction`, `raw_hash` mode)
+have been removed. The agent can only sign `TransferWithAuthorization`
+(EIP-3009) messages through scoped sub-keys. See `DESIGN-V1.md` for the
+full rationale.
 
-1. **Scope enforcement.** The Better Auth token's `scopes` must include
-   `signet:sign` (or `signet:keygen` for `create_key`). This is NOT wired
-   yet — the skeleton runs every tool on any valid token.
-2. **Audit log.** Every tool call records `(timestamp, userId, tool, args
-   summary, signet key_id, outcome)` to a persistent store. Build the
-   weekly "what the agent did" digest before, not after, the first user.
-3. **Pre-sign policy checks for `sign_transaction`:**
-   - Chain allow-list.
-   - Destination allow-list (per chain) OR per-day cumulative value cap.
-   - Function-selector allow-list for contract calls (so the AI can't
-     `approve(infinite, attacker)`).
-   - Off-chain simulation (e.g., Tenderly or a local fork) and surface the
-     simulation result back to the AI in the tool response, so the model has
-     visibility into what it just authorized.
-4. **`raw_hash` mode of `sign_message`.** Never expose this to AI agents.
-   It signs an arbitrary 32-byte digest with no preimage validation, which
-   is the universal "drain my wallet" footgun. Either remove that mode or
-   gate it behind a separate `signet:sign-raw-hash` scope that's never
-   granted in OAuth consent.
-5. **`sign_message` personal_sign.** Safer than raw, but still trivially
-   abused (sign an arbitrary string that's actually a serialized intent).
-   Pair with a content policy: regex against the message before signing.
+Remaining safety work:
+- **Elicitation** — consent dialogs before destructive tool calls
+- **Scope enforcement** — gate tools behind OAuth scopes
+- **Audit logging** — per-call recording
 
-The skeleton does **none** of these. The tool descriptions are written so a
-well-behaved AI reads them and understands the risk, but that's not a
-defense.
-
-## Scope model — bake in from day one
-
-OAuth scopes for the Better Auth consent screen:
+## Scope model (not yet enforced)
 
 ```
 signet:read       list_keys
-signet:keygen     create_key
-signet:sign       sign_message (personal_sign mode), sign_transaction
-signet:sign-raw   sign_message (raw_hash mode) — never grant from default consent
+signet:keygen     create_payment_key
+signet:sign       sign_payment, pay_x402_request
+signet:delegate   mint_delegation
+signet:manage     disable_key, enable_key
 ```
-
-The skeleton does NOT enforce these. Wire `session.scopes` into a small
-wrapper in `tools/index.ts` before adding any new caller.
 
 ## Open questions
 
@@ -220,42 +201,30 @@ wrapper in `tools/index.ts` before adding any new caller.
    `signet:read`; allow-list (or human-review) for any signing scope.
 6. **Multi-replica session cache.** Default-deny until someone needs it.
 
-## What's NOT in the skeleton
+## What's NOT done yet
 
+- No elicitation (consent dialogs before destructive tool calls).
 - No scope enforcement (every valid token can call every tool).
 - No rate limiting.
 - No audit logging.
-- No pre-sign simulation or policy checks.
-- No `sign_typed_data` (EIP-712) — the SDK has `signTypedData` in
-  `scopedSign.ts`; wire it in when scoped keys are in scope.
-- No delegation flow (the SDK has `requestDelegation` /
-  `authenticateWithDelegation`). Useful for per-AI-agent sub-keys with
-  bounded permissions; add when scopes need finer granularity than what
-  OAuth scopes give.
-- No tests. Add a `vitest` setup before the second tool round.
-- ~~The stub files at `src/signet/{crypto,canonicalHash,zk}.ts`~~ Deleted.
+- No tests.
 
 ## TODO — suggested order
 
-1. ~~**Stand up Better Auth**~~ Done — runs in-process with JWT (RS256,
-   RSA-2048), OIDC discovery, and MCP plugin.
-2. **Add Better Auth as a trusted issuer** on the Signet group
-   (`addIssuer(origin, [origin])`).
-3. **Run a prover service** that exposes `/v1/prove`. Point
-   `SIGNET_PROVER_URL` at it. This is the only piece that needs ZK
-   tooling (nargo + bb).
-4. **End-to-end smoke test.** Get a Better Auth JWT manually, hit `POST
-   /mcp` with `list_keys`, confirm 200. Then `create_key`, confirm a key
-   is returned. Don't wire Claude yet.
-5. **Wire Claude / ChatGPT** by adding the MCP server URL in their
-   client UI. The OAuth flow auto-redirects through Better Auth.
-6. **Scope enforcement** wrapper. Block `create_key` and `sign_*` if the
-   required scope isn't on the token. Update Better Auth consent UI to
-   surface the scopes clearly.
-7. **Audit log** to Postgres / Loki / your existing log pipeline.
-8. **Pre-sign policy checks** for `sign_transaction`.
-9. **Remove the `raw_hash` mode** of `sign_message` (or gate it).
-10. ~~**Delete the obsolete stub files**~~ Done.
+1. ~~**Stand up Better Auth**~~ Done.
+2. ~~**Add Better Auth as trusted issuer**~~ Done (testnet).
+3. ~~**Run prover service**~~ Done (signet-min-bundler on Railway).
+4. ~~**End-to-end smoke test**~~ Done — list_keys, create_payment_key,
+   pay_x402_request all verified via Claude.
+5. ~~**Wire Claude**~~ Done — OAuth flow works via ngrok / production URL.
+6. ~~**V1 tool surface**~~ Done — 7 scope-first tools with annotations.
+7. ~~**Remove unsafe tools**~~ Done — sign_message, sign_transaction,
+   raw_hash mode all removed. Only TransferWithAuthorization signing.
+8. **Elicitation** — consent dialogs on destructive tool calls.
+9. **Audit logging** — per-call recording to DB.
+10. **Scope enforcement** — gate tools behind OAuth scopes.
+11. **Deploy to Railway** — persistent disk for SQLite, custom domain.
+12. **Tests** — vitest setup.
 
 ## Pointers into the wider stack
 

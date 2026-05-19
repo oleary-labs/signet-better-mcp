@@ -21,8 +21,8 @@ export const registerPayX402Tools = (server: McpServer, ctx: ToolContext) => {
         .default("eip155:8453")
         .describe("Preferred payment network (default: Base)."),
     },
+    { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     async ({ url, method, headers, body, preferred_network }) => {
-      console.log("[pay_x402] url:", url, "method:", method)
       const session = await ctx.sessionManager.getOrCreate({ userId: ctx.userId, jwt: ctx.jwt })
 
       // Find a signer address for the preferred network. x402Fetch uses this
@@ -82,7 +82,6 @@ export const registerPayX402Tools = (server: McpServer, ctx: ToolContext) => {
           payment: result.paymentDetails ?? null,
         })
       } catch (err) {
-        console.error("[pay_x402] error:", err)
         if (err instanceof NeedKeyError) {
           return errorContent("need_key", {
             message: `No scoped sub-key for ${getChainName(err.chainId)} / ${err.contract}. Create one with create_payment_key first.`,

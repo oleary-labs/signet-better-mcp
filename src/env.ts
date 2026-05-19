@@ -29,6 +29,7 @@ const EnvSchema = z.object({
     .default('{"8453":"https://mainnet.base.org"}')
     .transform((s) => JSON.parse(s) as Record<string, string>),
 
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   PORT: z.coerce.number().int().positive().default(4100),
   PUBLIC_URL: z.string().url(),
 })
