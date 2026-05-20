@@ -78,6 +78,13 @@ For agent-facing scoped EIP-712 signing, the curve must be
 `ecrecover`, which only accepts ECDSA. A FROST Schnorr signature over
 the same typed-data hash would be valid but unverifiable on-chain.
 
+> **v1 MCP scope:** Only `ecdsa_secp256k1` is exposed in the v1 tool
+> surface (see [§ What this means for the MCP tool surface](#what-this-means-for-the-mcp-tool-surface)).
+> The underlying `signet/client.ts` accepts any of the three curves —
+> `frost_secp256k1` and `frost_ed25519` are protocol-supported and reachable
+> by hand-crafting calls, but v1 tools hard-code ECDSA because that's what
+> EVM verifiers accept and EVM is the only chain family v1 targets.
+
 ### Response shape (curve-dependent)
 
 | Field | Present for | Format |
