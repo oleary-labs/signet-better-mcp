@@ -11,7 +11,7 @@ Every push to `main` autodeploys (same model as the UI/bundler).
 
 The repo is already build-ready:
 - `Dockerfile` — Bun runtime, runs `bun src/index.ts`.
-- `railway.json` — pins the Dockerfile builder + `/healthz` healthcheck +
+- `railway.toml` — pins the Dockerfile builder + `/healthz` healthcheck +
   restart policy.
 
 ---
@@ -25,7 +25,7 @@ In the existing Railway project:
    - Branch: `main`
    - Root directory: `/` (repo root)
 3. **Settings → Build:** confirm builder is **Dockerfile** (auto-detected from
-   `railway.json`). No build command needed.
+   `railway.toml`). No build command needed.
 
 ## 2. Persistent volume (REQUIRED — SQLite lives here)
 
@@ -73,21 +73,27 @@ bundler side is reachable.
 1. **Service → Settings → Networking → Custom Domain**
 2. Add `signet-testnet-auth.olearylabs.com`.
 3. Add the **CNAME** record Railway shows you to the `olearylabs.com` DNS zone.
+   If the zone is on Cloudflare, set the record to **DNS only (grey cloud)** —
+   Cloudflare proxying in front of Railway's own TLS causes 522 errors.
 4. Wait for the cert to provision (TLS is automatic).
 
 `PUBLIC_URL` must exactly match this domain.
 
 ## 6. Google OAuth redirect (do BEFORE first sign-in)
 
-In **Google Cloud Console → APIs & Services → Credentials →** the OAuth client:
+In **Google Cloud Console → APIs & Services → Credentials →** the OAuth client,
+set the **Authorized redirect URI**:
 
-- **Authorized redirect URI:**
-  `https://signet-testnet-auth.olearylabs.com/api/auth/callback/google`
-- **Authorized JavaScript origin:**
-  `https://signet-testnet-auth.olearylabs.com`
+`https://signet-testnet-auth.olearylabs.com/api/auth/callback/google`
 
 (Path comes from Better Auth: `{baseURL}{basePath}/callback/google`, where
 `basePath` is `/api/auth`.)
+
+**Authorized JavaScript origins are NOT required.** The login page uses the
+redirect-based Authorization Code flow — the browser is redirected to Google
+and the code is exchanged server-side with the client secret. JS origins only
+matter for Google's browser SDK (Identity Services / One Tap / `gapi`), which
+this service does not use.
 
 ---
 
@@ -104,11 +110,16 @@ curl https://signet-testnet-auth.olearylabs.com/.well-known/oauth-protected-reso
 
 # OIDC config (prover uses this to find JWKS)
 curl https://signet-testnet-auth.olearylabs.com/.well-known/openid-configuration
+
+# JWKS — must be RS256 with a 2048-bit modulus (Signet ZK circuit requirement)
+curl https://signet-testnet-auth.olearylabs.com/api/auth/jwks
 ```
 
 Then load `https://signet-testnet-auth.olearylabs.com/login`, sign in with
 email+password and with Google, and confirm an MCP client can complete the
-OAuth flow against `/mcp`.
+OAuth flow against `/mcp`. The first authenticated `/mcp` call exercises the
+full path: mint JWT → `generateServerProof` → bundler over
+`…railway.internal:4337` → `/v1/auth` against the configured group.
 
 ## Redeploys
 
