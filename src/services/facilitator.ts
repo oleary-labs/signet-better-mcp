@@ -33,9 +33,6 @@ export async function settle(
   // the standard x402 flow).
   const paymentPayload = JSON.parse(atob(paymentPayloadBase64))
 
-  console.log("[facilitator] settling via", env.X402_FACILITATOR_URL)
-  console.log("[facilitator] payload:", JSON.stringify({ paymentPayload, paymentRequirements }, null, 2).slice(0, 1000))
-
   const res = await fetch(`${env.X402_FACILITATOR_URL}/settle`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
