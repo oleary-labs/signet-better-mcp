@@ -21,11 +21,18 @@ export interface SettleResult {
 /**
  * Call the x402 facilitator's /settle endpoint to submit a signed
  * TransferWithAuthorization on-chain. The facilitator pays gas.
+ *
+ * @param paymentPayloadBase64 - Base64-encoded PaymentPayload from buildPaymentPayload
  */
 export async function settle(
-  paymentPayload: string,
+  paymentPayloadBase64: string,
   paymentRequirements: PaymentRequirements,
 ): Promise<SettleResult> {
+  // The facilitator's /settle expects the decoded JSON object, not the
+  // base64 string (base64 is for the Payment-Signature HTTP header in
+  // the standard x402 flow).
+  const paymentPayload = JSON.parse(atob(paymentPayloadBase64))
+
   const res = await fetch(`${env.X402_FACILITATOR_URL}/settle`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
