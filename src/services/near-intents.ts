@@ -91,10 +91,18 @@ export async function resolveAssetId(tokenRef: string, chain?: string): Promise<
   return matches[0].assetId
 }
 
+function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  if (env.NEAR_INTENTS_JWT) {
+    headers["Authorization"] = `Bearer ${env.NEAR_INTENTS_JWT}`
+  }
+  return headers
+}
+
 export async function getQuote(params: QuoteRequest): Promise<QuoteResponse> {
   const res = await fetch(`${env.NEAR_INTENTS_API_URL}/v0/quote`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify(params),
   })
   if (!res.ok) {
@@ -107,7 +115,7 @@ export async function getQuote(params: QuoteRequest): Promise<QuoteResponse> {
 export async function submitDeposit(txHash: string, depositAddress: string): Promise<unknown> {
   const res = await fetch(`${env.NEAR_INTENTS_API_URL}/v0/deposit/submit`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     body: JSON.stringify({ txHash, depositAddress }),
   })
   if (!res.ok) {
