@@ -8,6 +8,9 @@ import { registerPayX402Tools } from "./pay_x402.js"
 import { registerDisableKeyTools } from "./disable_key.js"
 import { registerEnableKeyTools } from "./enable_key.js"
 import { registerMintDelegationTools } from "./mint_delegation.js"
+import { registerListSwapTokensTools } from "./list_swap_tokens.js"
+import { registerGetSwapQuoteTools } from "./get_swap_quote.js"
+import { registerExecuteSwapTools } from "./execute_swap.js"
 
 export type ToolContext = {
   userId: string
@@ -24,4 +27,7 @@ export const registerAllTools = (server: McpServer, ctx: ToolContext) => {
   registerDisableKeyTools(server, ctx)
   registerEnableKeyTools(server, ctx)
   registerMintDelegationTools(server, ctx)
+  registerListSwapTokensTools(server, ctx)
+  registerGetSwapQuoteTools(server, ctx)
+  registerExecuteSwapTools(server, ctx)
 }

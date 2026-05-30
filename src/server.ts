@@ -35,6 +35,14 @@ WHEN TO USE WHAT
   - pay_x402_request    → high-level: hit an x402-priced URL (preferred)
   - mint_delegation     → hand a sub-key to an autonomous worker
 
+CROSS-CHAIN SWAPS (via NEAR Intents)
+  Users with a funded USDC-on-Base key can swap to any token on
+  17+ chains (Ethereum, Solana, Arbitrum, Polygon, etc.):
+  - list_swap_tokens    → discover available destination tokens
+  - get_swap_quote      → check rates before committing
+  - execute_swap        → execute the swap (spends USDC)
+  The x402 facilitator submits the transfer on-chain for free.
+
 REFUSAL PATTERNS
   - Missing key → point at create_payment_key, do NOT auto-create
   - Insufficient balance → show address + amount needed, do NOT retry

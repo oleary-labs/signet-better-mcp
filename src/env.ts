@@ -29,6 +29,9 @@ const EnvSchema = z.object({
     .default('{"8453":"https://mainnet.base.org"}')
     .transform((s) => JSON.parse(s) as Record<string, string>),
 
+  NEAR_INTENTS_API_URL: z.string().url().default("https://1click.chaindefuser.com"),
+  X402_FACILITATOR_URL: z.string().url().default("https://facilitator.xpay.sh"),
+
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   PORT: z.coerce.number().int().positive().default(4100),
   PUBLIC_URL: z.string().url(),
