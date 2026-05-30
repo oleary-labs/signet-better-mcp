@@ -67,7 +67,10 @@ export const registerPayX402Tools = (server: McpServer, ctx: ToolContext) => {
               session.claims,
               session.identity,
             )
-            return sigResult.ecdsaSignature
+            // Normalize v byte: Signet returns v=0/1, EIP-3009 expects v=27/28
+            const sig = sigResult.ecdsaSignature
+            const vByte = parseInt(sig.slice(-2), 16)
+            return vByte < 27 ? sig.slice(0, -2) + (vByte + 27).toString(16).padStart(2, "0") : sig
           },
         })
 

@@ -117,10 +117,15 @@ export const registerExecuteSwapTools = (server: McpServer, ctx: ToolContext) =>
         USDC_BASE.eip712Version,
       )
 
+      // Normalize v byte: Signet returns v=0/1 but EIP-3009 expects v=27/28
+      const sig = sigResult.ecdsaSignature
+      const vByte = parseInt(sig.slice(-2), 16)
+      const normalizedSig = vByte < 27 ? sig.slice(0, -2) + (vByte + 27).toString(16).padStart(2, "0") : sig
+
       const paymentPayload = buildPaymentPayload(
         paymentRequirements,
         (typedData as any).message,
-        sigResult.ecdsaSignature,
+        normalizedSig,
       )
 
       const settleResult = await settle(paymentPayload, paymentRequirements)

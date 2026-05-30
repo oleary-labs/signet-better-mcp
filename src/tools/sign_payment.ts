@@ -70,8 +70,13 @@ export const registerSignPaymentTools = (server: McpServer, ctx: ToolContext) =>
         session.identity,
       )
 
+      // Normalize v byte: Signet returns v=0/1, EIP-3009 expects v=27/28
+      const sig = result.ecdsaSignature
+      const vByte = parseInt(sig.slice(-2), 16)
+      const normalizedSig = vByte < 27 ? sig.slice(0, -2) + (vByte + 27).toString(16).padStart(2, "0") : sig
+
       return jsonContent({
-        ecdsa_signature: result.ecdsaSignature,
+        ecdsa_signature: normalizedSig,
         signature: result.signature,
         key_id: subKey.id,
         ethereum_address: subKey.ethereum_address,
