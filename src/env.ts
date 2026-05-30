@@ -30,6 +30,7 @@ const EnvSchema = z.object({
     .transform((s) => JSON.parse(s) as Record<string, string>),
 
   NEAR_INTENTS_API_URL: z.string().url().default("https://1click.chaindefuser.com"),
+  NEAR_INTENTS_JWT: z.string().optional(),
   X402_FACILITATOR_URL: z.string().url().default("https://facilitator.xpay.sh"),
 
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
