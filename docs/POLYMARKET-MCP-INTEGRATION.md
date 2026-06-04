@@ -187,39 +187,54 @@ So native USDC wrapping is **supported by the contract but admin-paused
 as of 2026-06-03.** This could change at any time; worth re-checking
 periodically or monitoring the unpause event.
 
-### Funding paths from our MCP
+### Funding path from our MCP
 
 All paths start from the user's funded USDC-on-Base scoped key.
 
-**Path A — native USDC unpaused (simplest, not available today):**
-1. USDC (Base) → NEAR Intents → native USDC (Polygon) at deposit wallet
-2. `CollateralOnramp.wrap(nativeUSDC, depositWallet, amount)` → pUSD
-3. Ready to trade
+**Step 1 — Cross-chain (gasless):**
+USDC (Base) → NEAR Intents → native USDC (Polygon) at deposit wallet.
+The x402 facilitator covers Base gas; NEAR Intents handles the bridge.
 
-**Path B — native USDC paused (current state):**
-1. USDC (Base) → NEAR Intents → native USDC (Polygon) at deposit wallet
-2. Native USDC → USDC.e via DEX swap (Uniswap/QuickSwap, ~1:1)
-3. `CollateralOnramp.wrap(USDC.e, depositWallet, amount)` → pUSD
-4. Ready to trade
+**Step 2 — Approve + wrap (gasless via relayer):**
+The `approve(CollateralOnramp, amount)` and
+`CollateralOnramp.wrap(asset, depositWallet, amount)` calls both go
+through the Polymarket **Relayer** as `RelayClient.execute([{to, data,
+value}], description)`. The relayer accepts arbitrary encoded calls —
+not just orders — so approve + wrap are packaged as relayer
+transactions. The user signs, the relayer submits on-chain and pays
+POL. **No gas token needed by the user.**
 
-Gas considerations:
-- Step 1: gasless (x402 facilitator covers Base gas)
-- Step 2 (Path B only): needs POL for the DEX swap tx
-- Step 3: can go through Polymarket's **relayer** (gasless) if the
-  deposit wallet is a deployed Safe and the `wrap()` is packaged as
-  a Safe `execTransaction`
+This is the same `execute` flow used for Safe deployment, token
+approvals, CTF split/merge/redeem, and order placement. All gasless.
 
-### Recommendation
+**Open question:** native USDC vs USDC.e as the wrap input. The
+CollateralOnramp contract accepts both (confirmed on-chain), but
+native USDC is currently admin-paused (`OnlyUnpaused` revert as of
+2026-06-03). pUSD docs say it's "backed 1:1 by native USDC" and
+"settlement happens in native USDC" — USDC.e is being phased out.
+Confirm which input the live Onramp expects before wiring:
+- If native USDC unpauses: Step 1 delivers native USDC, wrap directly.
+- If still paused: need a native USDC → USDC.e DEX hop on Polygon
+  before wrapping. This hop needs gas (the relayer won't route
+  arbitrary DEX swaps), so it's the one friction point.
 
-For MVP, **treat funding as the user's responsibility** (they use
-Polymarket's UI or fund manually). The MCP handles market discovery,
-order placement, and risk checks — not the collateral on-ramp.
+### Relayer gotchas
 
-For the auto-funding follow-up:
-- Monitor native USDC unpause on the CollateralOnramp (Path A)
-- If still paused, Path B needs a DEX aggregator integration and a
-  POL gas source (or a gasless DEX like 0x/Paraswap with meta-txs)
-- The wrap step can be gasless via the relayer once the Safe is deployed
+1. **Gasless ≠ free.** The relayer recovers gas via a stablecoin fee
+   (historically $3 + network fee or 0.3%, whichever is higher — verify
+   the current V2 schedule). Use the SDK's `getGasPriceAndFee` with a
+   `gasMultiplier` to compute the fee; otherwise `insufficient-fee`
+   errors.
+2. **Relayer requires Builder Program credentials** — the same HMAC
+   builder API key used for order attribution. The funding/wrap path
+   can't be sponsored until builder codes are provisioned and HMAC auth
+   works. No separate auth track.
+
+### Net
+
+The full funding flow is: cross-chain via NEAR Intents (gasless) →
+approve + wrap via relayer (gasless) → pUSD balance → ready to trade.
+No POL needed. The only open item is the native-vs-bridged wrap input.
 
 ---
 
