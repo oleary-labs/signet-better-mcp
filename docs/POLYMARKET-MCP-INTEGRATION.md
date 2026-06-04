@@ -169,36 +169,57 @@ ERC-20 wrapper on Polygon with 1:1 USDC backing enforced on-chain.
 **Gotcha:** approve the **Onramp contract** for your USDC.e spend, not
 the pUSD contract. The Onramp pulls USDC.e from you and mints pUSD.
 
-### What the Onramp accepts today
+### What the Onramp accepts (confirmed on-chain 2026-06-03)
 
-The docs say USDC.e (`0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174`)
-only. **Open question: does it also accept native USDC
-(`0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`)?** The `wrap()` function
-takes an `asset` parameter, so it's plausible the contract is
-multi-asset — but unconfirmed. Before wiring the funding flow:
+The `CollateralOnramp` contract (`0x93070a...`, verified, Solidity
+0.8.34) accepts **both USDC.e and native USDC** via the same
+`wrap(address _asset, address _to, uint256 _amount)` function. It
+inherits `Pausable` with **per-asset pause** control by an admin.
 
-1. **Call `wrap()` with native USDC on a small amount** to confirm or
-   reject. If it reverts, we know it's USDC.e-only.
-2. If USDC.e-only, the funding path from our MCP is:
-   - USDC (Base) → NEAR Intents → native USDC (Polygon)
-   - Native USDC → USDC.e via DEX (Uniswap/QuickSwap, ~1:1)
-   - USDC.e → pUSD via `CollateralOnramp.wrap()`
-   Steps 2-3 need on-chain gas (POL) unless routed through the
-   Polymarket relayer. The relayer handles Safe txs gaslessly — so
-   if the deposit wallet is deployed, the wrap step can go through
-   the relayer. The DEX swap step cannot.
-3. If native USDC works with `wrap()`, the path simplifies to:
-   - USDC (Base) → NEAR Intents → native USDC (Polygon) at deposit wallet
-   - Native USDC → pUSD via `CollateralOnramp.wrap()`
-   Still needs the wrap step, but no DEX hop.
+On-chain test results (simulated `wrap()` calls):
+- **USDC.e** (`0x2791Bca...`) → reverts `TransferFromFailed()` — got
+  past the asset check, failed on the pull (expected: no balance).
+  **Active / unpaused.**
+- **Native USDC** (`0x3c499c5...`) → reverts `OnlyUnpaused()` — hit
+  the pause guard before attempting the transfer. **Currently paused.**
+
+So native USDC wrapping is **supported by the contract but admin-paused
+as of 2026-06-03.** This could change at any time; worth re-checking
+periodically or monitoring the unpause event.
+
+### Funding paths from our MCP
+
+All paths start from the user's funded USDC-on-Base scoped key.
+
+**Path A — native USDC unpaused (simplest, not available today):**
+1. USDC (Base) → NEAR Intents → native USDC (Polygon) at deposit wallet
+2. `CollateralOnramp.wrap(nativeUSDC, depositWallet, amount)` → pUSD
+3. Ready to trade
+
+**Path B — native USDC paused (current state):**
+1. USDC (Base) → NEAR Intents → native USDC (Polygon) at deposit wallet
+2. Native USDC → USDC.e via DEX swap (Uniswap/QuickSwap, ~1:1)
+3. `CollateralOnramp.wrap(USDC.e, depositWallet, amount)` → pUSD
+4. Ready to trade
+
+Gas considerations:
+- Step 1: gasless (x402 facilitator covers Base gas)
+- Step 2 (Path B only): needs POL for the DEX swap tx
+- Step 3: can go through Polymarket's **relayer** (gasless) if the
+  deposit wallet is a deployed Safe and the `wrap()` is packaged as
+  a Safe `execTransaction`
 
 ### Recommendation
 
 For MVP, **treat funding as the user's responsibility** (they use
 Polymarket's UI or fund manually). The MCP handles market discovery,
-order placement, and risk checks — not the collateral on-ramp. Add
-auto-funding as a follow-up once the `wrap()` acceptance is confirmed
-and the relayer integration is solid.
+order placement, and risk checks — not the collateral on-ramp.
+
+For the auto-funding follow-up:
+- Monitor native USDC unpause on the CollateralOnramp (Path A)
+- If still paused, Path B needs a DEX aggregator integration and a
+  POL gas source (or a gasless DEX like 0x/Paraswap with meta-txs)
+- The wrap step can be gasless via the relayer once the Safe is deployed
 
 ---
 
