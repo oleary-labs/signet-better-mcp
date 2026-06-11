@@ -57,6 +57,20 @@ export class SignetSessionManager {
     return pending
   }
 
+  /** Best-effort human label for a Better Auth user id, for log lines. */
+  private describeUser(userId: string): string {
+    if (!this.db) return `user=${userId}`
+    try {
+      const row = this.db
+        .query("SELECT email, name FROM user WHERE id = ?")
+        .get(userId) as { email?: string; name?: string } | null
+      if (!row) return `user=${userId} (not found)`
+      return `user=${userId} email=${row.email ?? "?"} name=${row.name ?? "?"}`
+    } catch (err) {
+      return `user=${userId} (lookup failed: ${(err as Error).message})`
+    }
+  }
+
   private async build(userId: string, jwt: string): Promise<SignetSession> {
     const debug = env.LOG_LEVEL === "debug"
     if (debug) console.log("[session] building new session...")
@@ -91,7 +105,10 @@ export class SignetSessionManager {
       "ecdsa_secp256k1",
       undefined, // no scope
     )
-    console.log("[session] parent key:", parentResult.ethereumAddress, parentResult.alreadyExisted ? "(cached)" : "(new DKG)")
+    const who = this.describeUser(userId)
+    console.log(
+      `[session] parent key: ${parentResult.ethereumAddress} ${parentResult.alreadyExisted ? "(cached)" : "(new DKG)"} — ${who} sub=${claims.sub} iss=${claims.iss}`,
+    )
 
     const parentKey: ParentKeyInfo = {
       keyId: parentResult.keyId,
