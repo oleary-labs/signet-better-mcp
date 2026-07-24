@@ -2,6 +2,7 @@
   "name": "@oleary/signet-better-mcp",
   "version": "0.0.1",
   "private": true,
+  "license": "MIT",
   "description": "MCP server for Signet — exposes threshold-signing operations to AI agents over MCP, with OAuth via Better Auth and ZK-bound session auth against a Signet group",
   "type": "module",
   "engines": {
