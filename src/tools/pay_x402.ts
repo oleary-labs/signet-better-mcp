@@ -1,10 +1,11 @@
 import { z } from "zod"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { x402Fetch } from "@oleary-labs/signet-sdk/x402"
-import { signTypedData, CHAIN_PRESETS, type EIP712TypedData } from "@oleary-labs/signet-sdk/scopedSign"
+import { signTypedData, type EIP712TypedData } from "@oleary-labs/signet-sdk/scopedSign"
 import { env } from "../env.js"
 import { getKeyByScope, getKeysByUser, type StoredKey } from "../signet/keyStore.js"
 import { fetchERC20Balance, getChainName } from "../chain/balance.js"
+import { findPreset } from "../chain/presets.js"
 import type { ToolContext } from "./index.js"
 
 export const registerPayX402Tools = (server: McpServer, ctx: ToolContext) => {
@@ -19,27 +20,43 @@ export const registerPayX402Tools = (server: McpServer, ctx: ToolContext) => {
       preferred_network: z
         .string()
         .default("eip155:8453")
-        .describe("Preferred payment network (default: Base)."),
+        .describe(
+          "Preferred payment network as a CAIP-2 id: eip155:8453 (Base, default) or eip155:5042 (Arc). If the endpoint doesn't accept it, any other network the user has a payment key for is tried.",
+        ),
     },
     { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     async ({ url, method, headers, body, preferred_network }) => {
       const session = await ctx.sessionManager.getOrCreate({ userId: ctx.userId, jwt: ctx.jwt })
 
-      // Find a signer address for the preferred network. x402Fetch uses this
-      // as the `from` field in the TransferWithAuthorization typed data.
-      const chainId = parseInt(preferred_network.split(":")[1]) || 8453
-      const userKeys = getKeysByUser(ctx.db, ctx.userId).filter((k) => k.kind === "scoped_eip712" && k.scope_chain_id === chainId)
-      const signerAddress = userKeys[0]?.ethereum_address ?? ""
+      // Candidate networks: the preferred one first, then every other chain
+      // the user holds an active payment key on. x402Fetch only matches one
+      // network per call, so we retry when the endpoint doesn't offer it.
+      const scopedKeys = getKeysByUser(ctx.db, ctx.userId).filter(
+        (k) => k.kind === "scoped_eip712" && k.status === "active" && k.scope_chain_id,
+      )
+      const networks = [
+        ...new Set([preferred_network, ...scopedKeys.map((k) => `eip155:${k.scope_chain_id}`)]),
+      ]
 
       const init: RequestInit = { method, headers }
       if (body) init.body = body
 
       try {
-        const result = await x402Fetch(url, init, {
-          signerAddress,
-          preferredNetwork: preferred_network,
+        const result = await fetchWithFallback(url, init, networks, (network) => ({
+          // x402Fetch uses this as the `from` field in the typed data.
+          signerAddress:
+            scopedKeys.find((k) => `eip155:${k.scope_chain_id}` === network)?.ethereum_address ?? "",
+          preferredNetwork: network,
           signTypedData: async (typedData: EIP712TypedData) => {
             const { chainId, verifyingContract } = typedData.domain
+            // The SDK falls back to name "USD Coin" when the 402 omits
+            // extra.name, which is wrong for Arc ("USDC"). Sign over the
+            // token's real domain so the on-chain check passes.
+            const preset = findPreset(chainId, verifyingContract)
+            if (preset) {
+              typedData.domain.name = preset.eip712Name
+              typedData.domain.version = preset.eip712Version
+            }
             const subKey = getKeyByScope(ctx.db, ctx.userId, chainId, verifyingContract!)
 
             if (!subKey) {
@@ -72,7 +89,7 @@ export const registerPayX402Tools = (server: McpServer, ctx: ToolContext) => {
             const vByte = parseInt(sig.slice(-2), 16)
             return vByte < 27 ? sig.slice(0, -2) + (vByte + 27).toString(16).padStart(2, "0") : sig
           },
-        })
+        }))
 
         const responseBody = await result.response.text()
         const responseHeaders: Record<string, string> = {}
@@ -105,6 +122,32 @@ export const registerPayX402Tools = (server: McpServer, ctx: ToolContext) => {
         throw err
       }
     },
+  )
+}
+
+type X402Options = Parameters<typeof x402Fetch>[2]
+
+/**
+ * Try x402Fetch once per candidate network until the endpoint offers one.
+ * Each miss costs an unpaid request that returned 402, so nothing is charged.
+ */
+const fetchWithFallback = async (
+  url: string,
+  init: RequestInit,
+  networks: string[],
+  optionsFor: (network: string) => X402Options,
+): Promise<Awaited<ReturnType<typeof x402Fetch>>> => {
+  let lastErr: unknown
+  for (const network of networks) {
+    try {
+      return await x402Fetch(url, init, optionsFor(network))
+    } catch (err) {
+      if (!(err instanceof Error) || !err.message.startsWith("No compatible EVM payment option")) throw err
+      lastErr = err
+    }
+  }
+  throw new Error(
+    `Endpoint accepts none of the networks tried (${networks.join(", ")}). ${(lastErr as Error)?.message ?? ""}`,
   )
 }
 

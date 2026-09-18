@@ -12,7 +12,7 @@ KEY MODEL
   Every user has one read-only parent key (their Ethereum identity)
   and zero-or-more scoped sub-keys. Each sub-key:
     - Is bound to one specific (chainId, verifying contract) pair —
-      e.g., "USDC on Base."
+      e.g., "USDC on Base" or "USDC on Arc."
     - Can ONLY sign EIP-3009 TransferWithAuthorization messages.
     - Has its own Ethereum address.
     - Must be funded by the user before payments work.
@@ -34,6 +34,12 @@ WHEN TO USE WHAT
   - sign_payment        → low-level: caller already has typed data
   - pay_x402_request    → high-level: hit an x402-priced URL (preferred)
   - mint_delegation     → hand a sub-key to an autonomous worker
+
+SUPPORTED PAYMENT CHAINS
+  - Base  chainId 8453  USDC 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+  - Arc   chainId 5042  USDC 0x3600000000000000000000000000000000000000
+  A key on one chain cannot pay on the other — each needs its own key
+  and its own funding.
 
 CROSS-CHAIN SWAPS (via NEAR Intents)
   Users with a funded USDC-on-Base key can swap to any token on

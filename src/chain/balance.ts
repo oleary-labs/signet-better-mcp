@@ -1,14 +1,17 @@
 import { createPublicClient, http, erc20Abi, formatUnits, type Address } from "viem"
-import { base } from "viem/chains"
+import { arc, base, type Chain } from "viem/chains"
 import { env } from "../env.js"
 
-const chainById: Record<number, { chain: typeof base; name: string }> = {
+// defaultRpc is used when SIGNET_RPC_URLS has no entry for the chain.
+// viem ships no public RPC for Arc, so it must be supplied here.
+const chainById: Record<number, { chain: Chain; name: string; defaultRpc?: string }> = {
   8453: { chain: base, name: "Base" },
+  5042: { chain: arc, name: "Arc", defaultRpc: "https://rpc.mainnet.arc.io" },
 }
 
 function getClient(chainId: number) {
-  const rpcUrl = env.SIGNET_RPC_URLS[String(chainId)]
   const info = chainById[chainId]
+  const rpcUrl = env.SIGNET_RPC_URLS[String(chainId)] ?? info?.defaultRpc
   if (!rpcUrl && !info) throw new Error(`No RPC URL configured for chain ${chainId}`)
   return createPublicClient({
     chain: info?.chain,
