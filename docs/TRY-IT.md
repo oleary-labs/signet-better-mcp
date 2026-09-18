@@ -6,17 +6,17 @@ cross-chain swaps using scoped keys held on the Signet threshold-signing
 network. The agent never holds a private key, and each key can only pay
 one specific asset.
 
-> **Signet is a testnet deployment — but payments and swaps settle in
-> real USDC on Base mainnet (real money).** Only fund a payment key with
-> a tiny amount: **~$1 is plenty** to try everything. Do **not** put
-> significant money in.
+> **Signet is in alpha, and payments and swaps settle in real USDC on
+> Base or Arc mainnet (real money).** Only fund a payment key with a tiny
+> amount: **~$1 is plenty** to try everything. Do **not** put significant
+> money in.
 
 ## 1. Connect your MCP client
 
 Add this as a remote MCP server / custom connector:
 
 ```
-https://signet-testnet-auth.olearylabs.com/mcp
+https://signet-mcp.oleary.com/mcp
 ```
 
 - **Claude (web or desktop):** Settings → Connectors → **Add custom
@@ -41,7 +41,13 @@ automatically.
 
 This mints a scoped sub-key and returns an Ethereum address. Send a
 small amount of **USDC on Base** (~$1) to that address from any wallet
-or exchange. Then confirm:
+or exchange.
+
+Arc works the same way: `"Create a payment key for USDC on Arc"`. A key
+only pays on its own chain, so Base and Arc each need their own key and
+their own funding. Swaps (step 5) are Base-only.
+
+Then confirm:
 
 ```
 "List my keys"
@@ -108,8 +114,9 @@ You can also explore what's available:
 - **Stuck on connect / sign-in** → make sure your client opened the
   OAuth browser window and you completed sign-in.
 - **"need funding"** → the payment key has a zero balance; send USDC on
-  Base to its address.
-- **"need key"** → ask the agent to `create_payment_key` for USDC on
-  Base first; it won't auto-create one.
+  that key's chain (Base or Arc) to its address.
+- **"need key"** → the endpoint wants a chain you have no key for; ask
+  the agent to `create_payment_key` for USDC on that chain. It won't
+  auto-create one.
 - **Swap fails** → check that the destination address format matches the
   destination chain (e.g., Solana address for SOL swaps).

@@ -101,8 +101,11 @@ docs/
 
 ## Deployment
 
-Dockerfile included (Bun runtime). Designed for Railway with persistent
-disk for SQLite. See `.env.example` for production env var template.
+Runs on Railway at `https://signet-mcp.oleary.com` against the Signet
+alpha (Ethereum mainnet). Payments settle in USDC on Base or Arc. See
+[`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md), which covers the
+ordering constraint between deploying and `addIssuer`, and
+`.env.example` for the variable template.
 
 ## What's NOT done yet
 
