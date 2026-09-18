@@ -1,7 +1,8 @@
 import { z } from "zod"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { keygen } from "@oleary-labs/signet-sdk/keygen"
-import { buildEIP712Scope, CHAIN_PRESETS } from "@oleary-labs/signet-sdk/scopedSign"
+import { buildEIP712Scope } from "@oleary-labs/signet-sdk/scopedSign"
+import { findPreset } from "../chain/presets.js"
 import { bytesToHex } from "@oleary-labs/signet-sdk/session"
 import { env } from "../env.js"
 import { upsertKey, getKeyByScope } from "../signet/keyStore.js"
@@ -11,9 +12,9 @@ import type { ToolContext } from "./index.js"
 export const registerCreatePaymentKeyTools = (server: McpServer, ctx: ToolContext) => {
   server.tool(
     "create_payment_key",
-    "Create a new scoped payment sub-key that can ONLY sign EIP-712 TransferWithAuthorization messages for one specific (chainId, verifying contract) pair — e.g., 'USDC on Base'. Use BEFORE the first sign_payment or pay_x402_request call for that asset. Idempotent: returns existing key if one already exists for this scope. The user MUST explicitly request this — do NOT call it as a side effect of other tools. The resulting key needs to be funded separately by the user.",
+    "Create a new scoped payment sub-key that can ONLY sign EIP-712 TransferWithAuthorization messages for one specific (chainId, verifying contract) pair — e.g., 'USDC on Base' or 'USDC on Arc'. Use BEFORE the first sign_payment or pay_x402_request call for that asset. Idempotent: returns existing key if one already exists for this scope. The user MUST explicitly request this — do NOT call it as a side effect of other tools. The resulting key needs to be funded separately by the user.",
     {
-      chain_id: z.number().int().positive().describe("Blockchain chain ID (e.g., 8453 for Base)."),
+      chain_id: z.number().int().positive().describe("Blockchain chain ID (e.g., 8453 for Base, 5042 for Arc)."),
       verifying_contract: z
         .string()
         .regex(/^0x[0-9a-fA-F]{40}$/)
@@ -43,9 +44,7 @@ export const registerCreatePaymentKeyTools = (server: McpServer, ctx: ToolContex
         })
       }
 
-      const preset = CHAIN_PRESETS.find(
-        (p) => p.chainId === chain_id && p.verifyingContract.toLowerCase() === verifying_contract.toLowerCase(),
-      )
+      const preset = findPreset(chain_id, verifying_contract)
       const resolvedLabel = label ?? preset?.label ?? `${verifying_contract.slice(0, 10)}... on ${getChainName(chain_id)}`
 
       // Build the 29-byte EIP-712 scope
@@ -101,9 +100,7 @@ export const registerCreatePaymentKeyTools = (server: McpServer, ctx: ToolContex
 }
 
 function fundingBlock(address: string, chainId: number, contract: string, label: string | null) {
-  const preset = CHAIN_PRESETS.find(
-    (p) => p.chainId === chainId && p.verifyingContract.toLowerCase() === contract.toLowerCase(),
-  )
+  const preset = findPreset(chainId, contract)
   const asset = preset?.contractName ?? "tokens"
   const chainName = getChainName(chainId)
   return {

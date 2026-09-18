@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { CHAIN_PRESETS } from "@oleary-labs/signet-sdk/scopedSign"
 import { fetchFormattedBalance } from "../chain/balance.js"
+import { findPreset } from "../chain/presets.js"
 import { getKeysByUser } from "../signet/keyStore.js"
 import type { ToolContext } from "./index.js"
 
@@ -17,11 +17,7 @@ export const registerListKeysTools = (server: McpServer, ctx: ToolContext) => {
 
       const scopedEntries = await Promise.all(
         scoped.map(async (k) => {
-          const preset = CHAIN_PRESETS.find(
-            (p) =>
-              p.chainId === k.scope_chain_id &&
-              p.verifyingContract.toLowerCase() === k.scope_contract?.toLowerCase(),
-          )
+          const preset = k.scope_chain_id ? findPreset(k.scope_chain_id, k.scope_contract) : undefined
 
           let balance = null
           if (k.scope_chain_id && k.scope_contract) {
