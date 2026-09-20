@@ -30,7 +30,14 @@ export const registerListKeysTools = (server: McpServer, ctx: ToolContext) => {
           }
 
           const funded = balance && BigInt(balance.raw) > 0n
-          const status = k.status === "disabled" ? "disabled" : funded ? "funded" : "created"
+          const status =
+            k.status === "retired"
+              ? "retired"
+              : k.status === "disabled"
+                ? "disabled"
+                : funded
+                  ? "funded"
+                  : "created"
 
           return {
             key_id: k.id,
@@ -43,6 +50,11 @@ export const registerListKeysTools = (server: McpServer, ctx: ToolContext) => {
             },
             balance,
             status,
+            ...(k.status === "retired"
+              ? {
+                  note: "Pre-dates method-bound scopes and can no longer sign. create_payment_key mints a replacement at a new address; anything held here stays at this address.",
+                }
+              : {}),
           }
         }),
       )

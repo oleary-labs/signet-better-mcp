@@ -6,7 +6,7 @@ import { findPreset } from "../chain/presets.js"
 import { TRANSFER_WITH_AUTHORIZATION_TYPES } from "../chain/eip3009.js"
 import { bytesToHex } from "@oleary-labs/signet-sdk/session"
 import { env } from "../env.js"
-import { upsertKey, getKeyByScope } from "../signet/keyStore.js"
+import { upsertKey, getKeyByScope, retireKey } from "../signet/keyStore.js"
 import { getChainName } from "../chain/balance.js"
 import type { ToolContext } from "./index.js"
 
@@ -29,25 +29,6 @@ export const registerCreatePaymentKeyTools = (server: McpServer, ctx: ToolContex
     async ({ chain_id, verifying_contract, label }) => {
       const session = await ctx.sessionManager.getOrCreate({ userId: ctx.userId, jwt: ctx.jwt })
 
-      // Check if key already exists in DB
-      const existing = getKeyByScope(ctx.db, ctx.userId, chain_id, verifying_contract)
-      if (existing) {
-        return jsonContent({
-          key_id: existing.id,
-          ethereum_address: existing.ethereum_address,
-          already_existed: true,
-          scope: {
-            chain_id,
-            verifying_contract,
-            label: existing.label,
-          },
-          funding: fundingBlock(existing.ethereum_address, chain_id, verifying_contract, existing.label),
-        })
-      }
-
-      const preset = findPreset(chain_id, verifying_contract)
-      const resolvedLabel = label ?? preset?.label ?? `${verifying_contract.slice(0, 10)}... on ${getChainName(chain_id)}`
-
       // Build the 61-byte EIP-712 scope: chain, contract, and the method.
       //
       // It was 29 bytes and omitted the type hash, which bound a key to a
@@ -65,6 +46,33 @@ export const registerCreatePaymentKeyTools = (server: McpServer, ctx: ToolContex
         verifying_contract,
         eip712TypeHash("TransferWithAuthorization", TRANSFER_WITH_AUTHORIZATION_TYPES as never),
       )
+
+      // Check if key already exists in DB
+      const existing = getKeyByScope(ctx.db, ctx.userId, chain_id, verifying_contract)
+      if (existing && existing.scope !== scope) {
+        // A key stored under a different scope format cannot sign: the nodes
+        // recompute the scope from the payload and derive a different suffix.
+        // Retire it and mint a replacement rather than returning a dead key.
+        retireKey(ctx.db, existing.id)
+        console.log(
+          `[create_payment_key] retired ${existing.ethereum_address} (scope format changed) — user=${ctx.userId}`,
+        )
+      } else if (existing) {
+        return jsonContent({
+          key_id: existing.id,
+          ethereum_address: existing.ethereum_address,
+          already_existed: true,
+          scope: {
+            chain_id,
+            verifying_contract,
+            label: existing.label,
+          },
+          funding: fundingBlock(existing.ethereum_address, chain_id, verifying_contract, existing.label),
+        })
+      }
+
+      const preset = findPreset(chain_id, verifying_contract)
+      const resolvedLabel = label ?? preset?.label ?? `${verifying_contract.slice(0, 10)}... on ${getChainName(chain_id)}`
 
       // Derive suffix from scope hash — must match server-side derivation
       // Protocol: sha256(scope_bytes)[:8] hex-encoded
