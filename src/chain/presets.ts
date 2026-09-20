@@ -9,6 +9,14 @@ export type PaymentPreset = {
   eip712Version: string
 }
 
+// SDK 0.2.0 has these testnet USDC domain names wrong ("USD Coin"); the
+// contracts use "USDC". Fixed upstream in signet-sdk#4 — drop this and the Arc
+// entry below once the MCP moves to that release.
+const DOMAIN_NAME_FIXES: Record<number, string> = {
+  84532: "USDC",
+  11155111: "USDC",
+}
+
 /**
  * SDK presets plus chains the SDK doesn't ship yet.
  *
@@ -17,7 +25,7 @@ export type PaymentPreset = {
  * "USD Coin" as on Base — verified against DOMAIN_SEPARATOR() on chain 5042.
  */
 export const PAYMENT_PRESETS: readonly PaymentPreset[] = [
-  ...CHAIN_PRESETS,
+  ...CHAIN_PRESETS.map((p) => ({ ...p, eip712Name: DOMAIN_NAME_FIXES[p.chainId] ?? p.eip712Name })),
   {
     label: "USDC on Arc",
     chainId: 5042,

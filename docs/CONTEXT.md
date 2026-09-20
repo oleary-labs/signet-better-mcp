@@ -212,7 +212,8 @@ signet:manage     disable_key, enable_key
 ## TODO — suggested order
 
 1. ~~**Stand up Better Auth**~~ Done.
-2. ~~**Add Better Auth as trusted issuer**~~ Done (testnet).
+2. ~~**Add Better Auth as trusted issuer**~~ Done (alpha group
+   `0x641B8f6c…d753`; the testnet deployment was retired 2026-09-18).
 3. ~~**Run prover service**~~ Done (signet-min-bundler on Railway).
 4. ~~**End-to-end smoke test**~~ Done — list_keys, create_payment_key,
    pay_x402_request all verified via Claude.
