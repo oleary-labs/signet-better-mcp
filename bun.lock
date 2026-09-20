@@ -6,7 +6,7 @@
       "name": "@oleary/signet-better-mcp",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.0.4",
-        "@oleary-labs/signet-sdk": "^0.2.0",
+        "@oleary-labs/signet-sdk": "^0.4.0",
         "better-auth": "^1.5.0",
         "fetch-to-node": "^2.1.0",
         "hono": "^4.6.13",
@@ -52,7 +52,7 @@
 
     "@noble/secp256k1": ["@noble/secp256k1@3.1.0", "", {}, "sha512-+F7iS7tUMaNGXcc9X3PjmjvuQnXEuSjCRNzVVA2xAcKXgCaP0dHYz4SFyt4FKNHef7sOP//xihowcySSS7PK9g=="],
 
-    "@oleary-labs/signet-sdk": ["@oleary-labs/signet-sdk@0.2.0", "", { "dependencies": { "@noble/curves": "^1.9.0", "@noble/hashes": "^1.8.0", "@noble/secp256k1": "^3.0.0" }, "peerDependencies": { "@aztec/bb.js": "0.82.2", "@noir-lang/noir_js": "1.0.0-beta.11", "@oleary-labs/signet-circuits": "0.1.0", "viem": ">=2.0.0" }, "optionalPeers": ["@aztec/bb.js", "@noir-lang/noir_js", "@oleary-labs/signet-circuits"] }, "sha512-hCoNqkBmEA3n3EfrfRrJW7IgPNGqMakYq4UXVdOri+jtVvKZ6pKVe3u6yCSaM0+z/96cDZnE3ODaJVoWEjaxwg=="],
+    "@oleary-labs/signet-sdk": ["@oleary-labs/signet-sdk@0.4.0", "", { "dependencies": { "@noble/curves": "^1.9.0", "@noble/hashes": "^1.8.0", "@noble/secp256k1": "^3.0.0" }, "peerDependencies": { "@aztec/bb.js": "0.82.2", "@noir-lang/noir_js": "1.0.0-beta.11", "@oleary-labs/signet-circuits": "^0.3.0", "viem": ">=2.0.0" }, "optionalPeers": ["@aztec/bb.js", "@noir-lang/noir_js", "@oleary-labs/signet-circuits"] }, "sha512-v1YhcxlzVmw6990V2KxautsliiIwifVYjyX5RYAq9PPK8TziS83h4p+ctjpRbynSxXcmnnm8y1Y2dBfwfLyJKA=="],
 
     "@opentelemetry/semantic-conventions": ["@opentelemetry/semantic-conventions@1.41.1", "", {}, "sha512-/UhIkaZgPutTFmQ7RnIJGgDXZmtEJ7Dvi86xNTFWcnRxVRNk/aotsqDJYeEvDP+FSMB2SdW+pQzNMcWP0rwuNA=="],
 

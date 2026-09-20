@@ -1,8 +1,9 @@
 import { z } from "zod"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { keygen } from "@oleary-labs/signet-sdk/keygen"
-import { buildEIP712Scope } from "@oleary-labs/signet-sdk/scopedSign"
+import { buildEIP712Scope, eip712TypeHash } from "@oleary-labs/signet-sdk/scopedSign"
 import { findPreset } from "../chain/presets.js"
+import { TRANSFER_WITH_AUTHORIZATION_TYPES } from "../chain/eip3009.js"
 import { bytesToHex } from "@oleary-labs/signet-sdk/session"
 import { env } from "../env.js"
 import { upsertKey, getKeyByScope } from "../signet/keyStore.js"
@@ -47,8 +48,23 @@ export const registerCreatePaymentKeyTools = (server: McpServer, ctx: ToolContex
       const preset = findPreset(chain_id, verifying_contract)
       const resolvedLabel = label ?? preset?.label ?? `${verifying_contract.slice(0, 10)}... on ${getChainName(chain_id)}`
 
-      // Build the 29-byte EIP-712 scope
-      const scope = buildEIP712Scope(chain_id, verifying_contract)
+      // Build the 61-byte EIP-712 scope: chain, contract, and the method.
+      //
+      // It was 29 bytes and omitted the type hash, which bound a key to a
+      // contract but not to a message — a key scoped to USDC could sign an
+      // EIP-2612 permit as readily as a transfer. The scope now names the one
+      // method this server will ever sign.
+      //
+      // Nothing failed loudly while this was wrong. The old format still
+      // compiles against the SDK's 0.2.0 range and only disagrees at the point
+      // of use: a current node recomputes the scope from the payload, derives a
+      // different suffix, and rejects the request. Any key created under the old
+      // format has to be regenerated rather than migrated.
+      const scope = buildEIP712Scope(
+        chain_id,
+        verifying_contract,
+        eip712TypeHash("TransferWithAuthorization", TRANSFER_WITH_AUTHORIZATION_TYPES as never),
+      )
 
       // Derive suffix from scope hash — must match server-side derivation
       // Protocol: sha256(scope_bytes)[:8] hex-encoded
